@@ -7,7 +7,7 @@ from pathlib import Path
 from datetime import datetime
 
 dbFile = 'wd.db'
-apiKey = 'f62a62238c194ce78fd124607b2e4c2c'
+apiKey = ''
 
 def build_app():
     """ build the webapp """
