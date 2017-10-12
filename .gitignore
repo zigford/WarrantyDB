@@ -1,1 +1,5 @@
-api.key
+﻿api.key
+SurfaceWarranty.csv
+MicrosoftWarrantyData.csv
+*.pyc
+*.pyo
