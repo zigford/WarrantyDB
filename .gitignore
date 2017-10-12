@@ -3,3 +3,5 @@ SurfaceWarranty.csv
 MicrosoftWarrantyData.csv
 *.pyc
 *.pyo
+warrantyDB.log
+wd.db

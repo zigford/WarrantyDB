@@ -1,19 +1,28 @@
 """ Module for managing Dell Warranty Code """
 
-import sqlite3, urllib.request, json
+import sqlite3, urllib.request, json, csv
 from flask import Flask
 from flask import jsonify
 from pathlib import Path
 from datetime import datetime
 app = Flask(__name__)
 
-dbFile = 'wd.db'
-apiKey = ''
-
 def logMsg(msg):
     text_file = open("warrantyDB.log", "a")
     text_file.write(msg + "\n")
     text_file.close()
+
+dbFile = 'wd.db'
+apiKeyFilePath = 'api.key'
+with open(apiKeyFilePath, "r") as apiKeyFile:
+    apiKey = apiKeyFile.read()
+
+logMsg("Unable to open or read api key!")
+if apiKey is not None:
+    logMsg("Read API Key " + apiKey)
+else:
+    logMsg("Unable to read api key! Closing...")
+    sys.exit(1)
 
 @app.route("/warranty")
 def hello():
@@ -32,6 +41,10 @@ def convertDellDatetime(dellDatetime):
     yearStr = splitStr[2].split('T')
     return datetime(int(splitStr[0]), int(splitStr[1]), int(yearStr[0]))
 
+def convertMsDatetime(msDatetime):
+    newDateTime = datetime.strptime(msDatetime,"%d-%b-%y")
+    return newDateTime
+
 def get_warrantydata(servicetag):
     # first we check if it's in cache:
     Tried = 0
@@ -40,8 +53,9 @@ def get_warrantydata(servicetag):
         Tried = Tried + 1
         try:
             tryUpdateCache(servicetag)
-        except:
-            logMsg("Vailed to get valid info from Web for " + servicetag)
+        except Exception as ex:
+            logMsg("Failed to get valid info from Sources for " + servicetag + 
+                " error: " + ex)
         warrantyData = get_warrantydata_from_sql(servicetag)
     if warrantyData is not None:
         return warrantyData
@@ -53,6 +67,30 @@ def get_warrantydata(servicetag):
                 'Model'        : 'undefined'})
 
 def tryUpdateCache(servicetag):
+    if len(servicetag) >= 12:
+        logMsg("Detected Serial matching an MS Surface")
+        tryUpdateCacheMicrosoft(servicetag)
+    else:
+        logMsg("Detected Serial matching a Dell device")
+        tryUpdateCacheDell(servicetag)
+
+def tryUpdateCacheMicrosoft(servicetag):
+    msCsvFilePath = 'MicrosoftWarrantyData.csv'
+    with open(msCsvFilePath) as msCsvFile:
+        msCsv = csv.reader(msCsvFile, delimiter=',')
+        for row in msCsv:
+            logMsg("Checking row for match: "+ row[0])
+            if row[0] == servicetag:
+                logMsg("Found matching row in CSV: " + servicetag)
+                msWarrantyEndDate = row[9]
+                wd = {
+                    'ComputerName' : servicetag,
+                    'WarrantyData' : convertMsDatetime(msWarrantyEndDate),
+                    'Model'        : row[2]
+                }
+                updateSql(wd)
+
+def tryUpdateCacheDell(servicetag):
     baseURL='https://api.dell.com/support/assetinfo/v4/getassetwarranty/'
     serviceTagURL = baseURL + servicetag
     apiURL = serviceTagURL + '?apikey=' + apiKey
