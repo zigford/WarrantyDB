@@ -5,25 +5,27 @@ from flask import Flask
 from flask import jsonify
 from pathlib import Path
 from datetime import datetime
+app = Flask(__name__)
 
 dbFile = 'wd.db'
 apiKey = ''
 
-def build_app():
-    """ build the webapp """
-    app = Flask(__name__)
+def logMsg(msg):
+    text_file = open("warrantyDB.log", "a")
+    text_file.write(msg + "\n")
+    text_file.close()
 
-    @app.route("/")
-    def hello():
-        # do something
-        return "Please use /warranty/ServiceTag URL to get a warranty data."
+@app.route("/warranty")
+def hello():
+    logMsg("Hello route")
+    # do something
+    return "Please use /warranty/ServiceTag URL to get a warranty data."
 
-    @app.route("/warranty/<servicetag>")
-    def warrantyEndDate(servicetag):
-        warrantyInfo = get_warrantydata(servicetag)
-        return warrantyInfo
-
-    return app
+@app.route("/warranty/<servicetag>")
+def warrantyEndDate(servicetag):
+    logMsg("Checking servicetags")
+    warrantyInfo = get_warrantydata(servicetag)
+    return warrantyInfo
 
 def convertDellDatetime(dellDatetime):
     splitStr = dellDatetime.split('-')
@@ -36,20 +38,25 @@ def get_warrantydata(servicetag):
     warrantyData = get_warrantydata_from_sql(servicetag)
     while warrantyData is None and (Tried < 2):
         Tried = Tried + 1
-        tryUpdateCache(servicetag)
+        try:
+            tryUpdateCache(servicetag)
+        except:
+            logMsg("Vailed to get valid info from Web for " + servicetag)
         warrantyData = get_warrantydata_from_sql(servicetag)
     if warrantyData is not None:
         return warrantyData
     else:
+        logMsg("Unable to get data for " + servicetag)
         return jsonify({
                 'ComputerName' : 'undefined',
                 'WarrantyData' : 'undefined',
                 'Model'        : 'undefined'})
 
 def tryUpdateCache(servicetag):
-    baseURL='https://sandbox.api.dell.com/support/assetinfo/v4/getassetwarranty/'
+    baseURL='https://api.dell.com/support/assetinfo/v4/getassetwarranty/'
     serviceTagURL = baseURL + servicetag
     apiURL = serviceTagURL + '?apikey=' + apiKey
+    logMsg("Attempting to get info from " + apiURL)
     with urllib.request.urlopen(apiURL) as url:
         data = json.loads(url.read().decode())
     newestEndDate = datetime(1970, 1, 1)
@@ -110,5 +117,7 @@ def initSqlCursor():
         print(e)
         return -1
 
-app = build_app()
-app.run()
+logMsg("App has launched")
+
+if __name__ == "__main__":
+    app.run()
