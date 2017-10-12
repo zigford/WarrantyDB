@@ -53,9 +53,8 @@ def get_warrantydata(servicetag):
         Tried = Tried + 1
         try:
             tryUpdateCache(servicetag)
-        except Exception as ex:
-            logMsg("Failed to get valid info from Sources for " + servicetag + 
-                " error: " + ex)
+        except:
+            logMsg("Failed to get valid info from Sources for " + servicetag)
         warrantyData = get_warrantydata_from_sql(servicetag)
     if warrantyData is not None:
         return warrantyData
